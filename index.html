@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1c6759">
+  <meta name="description" content="DYL 好時光日誌：記錄生活、感受與投入，回顧能量和愉悅的變化。">
+  <title>拾光日誌 · Good Times Journal</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="網站導覽">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">✳</div><div><div class="brand-name">拾光日誌</div><div class="brand-sub">GOOD TIMES JOURNAL</div></div></div>
+      <div class="sidebar-section-label">我的生活</div>
+      <nav class="side-nav" aria-label="主要功能">
+        <button class="nav-link active" data-view="journal"><span class="nav-icon" aria-hidden="true">✎</span><span>每日紀錄</span><span class="nav-arr" aria-hidden="true">↗</span></button>
+        <button class="nav-link" data-view="review"><span class="nav-icon" aria-hidden="true">◈</span><span>好時光探索</span><span class="nav-arr" aria-hidden="true">↗</span></button>
+        <button class="nav-link" data-view="calendar"><span class="nav-icon" aria-hidden="true">▦</span><span>生活日曆</span><span class="nav-arr" aria-hidden="true">↗</span></button>
+      </nav>
+      <div class="sidebar-section-label second-label">關於這本手帳</div>
+      <nav class="side-nav"><button class="nav-link" data-view="guide"><span class="nav-icon" aria-hidden="true">☼</span><span>使用指引</span><span class="nav-arr" aria-hidden="true">↗</span></button></nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-note"><span class="tiny-sparkle">✧</span><p>日常不必都很美好，<br>每一種感受都值得記錄。</p></div>
+      <div class="sidebar-bottom"><span class="privacy-dot"></span> 目前資料只存在此瀏覽器</div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="breadcrumb"><span>DESIGN YOUR LIFE</span><span class="breadcrumb-sep">/</span><strong id="topbar-current">每日紀錄</strong></div>
+        <div class="topbar-right"><div class="save-state" id="save-status" role="status" aria-live="polite"><span class="save-dot"></span> 已在本機儲存</div><div class="profile-chip" title="這是儲存在本機瀏覽器中的個人手帳">我的手帳 <span aria-hidden="true">✿</span></div></div>
+      </header>
+
+      <div id="view-journal" class="page active-page">
+        <section class="page-heading journal-heading">
+          <div><div class="eyebrow"><span class="eyebrow-sparkle">✧</span> MY DAILY MOMENTS</div><h1>把今天，慢慢寫下來<span class="heading-period">。</span></h1><p>不只快樂的事，疲倦、煩惱與微小的心動，都可以在這裡好好留下。</p></div>
+          <div class="heading-illustration" aria-hidden="true"><div class="illu-sun">☀</div><div class="illu-note">today is<br><em>your story</em></div><div class="illu-line"></div></div>
+        </section>
+        <div class="date-toolbar">
+          <div class="date-controls"><button class="icon-btn" id="journal-prev" aria-label="前一天">‹</button><input type="date" id="journal-date" aria-label="日誌日期"><button class="icon-btn" id="journal-next" aria-label="後一天">›</button><button class="subtle-btn" id="journal-today">回到今天</button></div>
+          <div class="daily-progress"><span class="progress-flower" aria-hidden="true">✿</span><span id="journal-progress-text">已記錄 0 / 3 件事</span><div class="mini-track"><div id="journal-progress-bar" class="mini-fill"></div></div></div>
+        </div>
+        <div class="journal-grid">
+          <section class="journal-left" aria-labelledby="events-title"><div class="section-heading"><div><span class="section-kicker">01 / LITTLE MOMENTS</span><h2 id="events-title">今天發生了什麼？</h2><p>回想三件印象深刻的事，不用特別，也不必完美。</p></div><span class="section-ornament" aria-hidden="true">✺</span></div><div id="entries-container" class="entries-list"></div><button class="add-entry-btn" id="add-entry"><span class="plus-ring">＋</span>再記下一件事</button></section>
+          <aside class="journal-right"><div class="summary-card"><div class="summary-card-top"><span class="section-kicker">02 / DAILY SUMMARY</span><span class="summary-icon" aria-hidden="true">☀</span></div><h2>今天，是怎麼樣的一天？</h2><p>用一句話、幾個字，幫今天取個名字。</p><label class="sr-only" for="daily-summary">今天的總結</label><textarea id="daily-summary" rows="5" maxlength="120" placeholder="例如：有點忙碌，卻也被好幾個小瞬間溫暖的一天。"></textarea><div class="summary-footer"><span>留給今天的自己</span><span id="summary-count">0 / 120</span></div><div class="summary-divider"></div><div class="summary-check"><span>今天的生活片段</span><strong id="summary-progress">0 / 3</strong></div><div class="big-track"><div id="summary-progress-bar" class="big-fill"></div></div><button class="primary-btn full-width" id="complete-day">完成今天的紀錄 <span aria-hidden="true">↗</span></button><div class="summary-hint" id="completion-hint">先寫下 3 件生活中的小事吧。</div></div><div class="gentle-note"><div class="gentle-note-graphic" aria-hidden="true">✷</div><div><strong>寫給正在記錄的你</strong><p>日誌不是表現評分。也可以寫下糟糕的事，重要的是慢慢看見自己的感受。</p></div></div></aside>
+        </div>
+      </div>
+
+      <div id="view-review" class="page" hidden>
+        <section class="page-heading review-heading"><div><div class="eyebrow"><span class="eyebrow-sparkle">✧</span> REFLECTION STUDIO</div><h1>讓生活的線索，慢慢浮現<span class="heading-period">。</span></h1><p>把這段時間的紀錄攤開，看看什麼讓你充電、什麼讓你耗電。</p></div></section>
+        <div class="date-toolbar"><div class="date-controls"><button class="icon-btn" id="review-prev" aria-label="前一週">‹</button><strong class="range-label" id="review-range">本週</strong><button class="icon-btn" id="review-next" aria-label="後一週">›</button><button class="subtle-btn" id="review-current">本週</button></div><div class="review-counter" id="review-count">本週 0 個事件</div></div>
+        <div class="reflection-intro"><span class="reflection-intro-star" aria-hidden="true">✧</span><div><strong>這是探索，不是測驗。</strong><p>先從一件事件開始：圈出不同感受，再找出其中讓你充電或耗電的元素。高投入不一定等於高能量，同一件事也可能有不只一種情緒。</p></div></div>
+        <div class="review-layout"><section class="review-main"><div class="section-heading"><div><span class="section-kicker">01 / LOOK BACK</span><h2>回頭看看這週的時刻</h2><p>點開事件，在文字中畫上顏色，留下你觀察到的線索。</p></div></div><div id="reflection-entries" class="reflection-entries"></div></section><aside class="review-right"><div class="quadrant-card"><div class="quadrant-card-head"><span class="section-kicker">02 / EMOTION MAP</span><h2>好時光情緒儀錶板</h2><p>依你手動選擇的情緒象限，整理這週的事件。</p></div><div class="quadrant-wrap"><div class="axis-label axis-top">高能量 ↑</div><div class="quadrant-grid" id="quadrant-grid"><div class="q-area q-red" data-q="red"><span>緊張・焦慮</span></div><div class="q-area q-yellow" data-q="yellow"><span>興奮・快樂</span></div><div class="q-area q-blue" data-q="blue"><span>難過・疲累</span></div><div class="q-area q-green" data-q="green"><span>平靜・放鬆</span></div></div><div class="axis-label axis-bottom">低能量 ↓</div><div class="axis-x-labels"><span>← 低愉悅</span><span>高愉悅 →</span></div></div><p class="chart-footnote">每個圓點代表一個事件標記；位置只區分象限，不代表精確分數。</p><div class="quadrant-legend"><div><i class="legend-pip q-red-pip"></i>高能量 × 低愉悅</div><div><i class="legend-pip q-yellow-pip"></i>高能量 × 高愉悅</div><div><i class="legend-pip q-blue-pip"></i>低能量 × 低愉悅</div><div><i class="legend-pip q-green-pip"></i>低能量 × 高愉悅</div></div></div></aside></div>
+        <div class="insight-grid"><section class="insight-panel"><div class="section-kicker">03 / PATTERNS</div><h2>我的充電與耗電線索</h2><div id="insight-tag-columns" class="insight-tag-columns"></div></section><section class="insight-panel questions-panel"><div class="section-kicker">04 / REFLECT</div><h2>留給自己的三個問題</h2><div class="question-item"><span>01</span><p>這週哪一種顏色最常出現？這些事件有什麼共通點？</p></div><div class="question-item"><span>02</span><p>有沒有很投入、卻不太愉悅的事？為什麼它仍出現在生活裡？</p></div><div class="question-item"><span>03</span><p>如果下週能為自己增加一個充電元素，你會選哪個？</p></div><button class="outline-btn" id="copy-reflection">複製我的分享摘要 <span>↗</span></button><p class="little-privacy">只會複製摘要到剪貼簿；由你決定是否分享。</p></section></div>
+      </div>
+
+      <div id="view-calendar" class="page" hidden><section class="page-heading"><div><div class="eyebrow"><span class="eyebrow-sparkle">✧</span> YOUR LIFE, IN DAYS</div><h1>生活日曆<span class="heading-period">。</span></h1><p>平凡的日子，也有值得留下的溫度。點選日期就能回到那天的日誌。</p></div></section><section class="calendar-panel"><div class="calendar-top"><div><span class="section-kicker">MY MONTHLY MOMENTS</span><h2 id="calendar-month-label">本月</h2></div><div class="calendar-actions"><button class="icon-btn" id="calendar-prev" aria-label="前一個月">‹</button><button class="icon-btn" id="calendar-next" aria-label="下一個月">›</button><button class="subtle-btn" id="calendar-current">本月</button></div></div><div class="calendar-weekdays"><span>週一</span><span>週二</span><span>週三</span><span>週四</span><span>週五</span><span>週六</span><span>週日</span></div><div id="calendar-grid" class="calendar-grid"></div><div class="calendar-legend"><span><i class="cal-dot filled"></i> 有紀錄的日子</span><span><i class="cal-dot"></i> 尚未紀錄</span></div></section></div>
+
+      <div id="view-guide" class="page" hidden><section class="page-heading"><div><div class="eyebrow"><span class="eyebrow-sparkle">✧</span> A LITTLE GUIDE</div><h1>這本手帳，怎麼使用？<span class="heading-period"></span></h1><p>延續 DYL 好時光日誌活動：先紀錄，再回顧，最後從生活中認識自己。</p></div></section><div class="guide-grid"><article class="guide-card"><span class="guide-number">01</span><h2>每天留下三件事</h2><p>記下事件、感受與想法，挑選一個最貼近當下的 Emoji，並用 0–100 的滑桿標示投入程度。投入可以參考時間、心力、體力等，自行定義即可。</p></article><article class="guide-card"><span class="guide-number">02</span><h2>幫今天取個名字</h2><p>完成當日紀錄後，簡短回答：「今天是一個怎麼樣的一天？」平靜、難過、忙碌，都不需要修飾。</p></article><article class="guide-card"><span class="guide-number">03</span><h2>一週後再回顧</h2><p>到「好時光探索」點開事件，選取文字以四色標記感受；一件事可以有複數情緒。再寫下影響自己的充電與耗電元素。</p></article><article class="guide-card"><span class="guide-number">04</span><h2>找到生活中的線索</h2><p>看看四象限圖及重複出現的元素，思考這些事件有什麼共同點，並自己決定要如何調整生活。</p></article></div><div class="data-panel"><div><span class="section-kicker">YOUR DATA, YOUR CHOICE</span><h2>備份與隱私</h2><p>這個示範版本不需要登入，也不會把日誌上傳到伺服器。紀錄只保存在你目前使用的瀏覽器中：換電腦、換瀏覽器或清除網站資料都可能看不到原本的紀錄。</p><p>建議定期下載備份。匯入備份會取代目前瀏覽器內的整份日誌。</p></div><div class="data-actions"><button class="primary-btn" id="export-data">↓ 下載 JSON 備份</button><button class="outline-btn" id="import-data-btn">↑ 匯入 JSON 備份</button><input type="file" id="import-data-file" accept="application/json,.json" hidden><button class="text-danger-btn" id="clear-data">清空本機紀錄</button></div></div><div class="demo-panel"><div><h3>想先看看回顧畫面？</h3><p>可以選擇載入幾天的範例資料，用來體驗互動儀錶板。這些只是示例，不是你的真實紀錄。</p></div><button class="outline-btn" id="load-demo">載入示範資料</button></div></div>
+
+      <footer class="footer">DESIGN YOUR LIFE　<span>·</span>　慢下腳步，品味生活的每一刻。 <span class="footer-right">Made for reflection, not perfection ✳</span></footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>
