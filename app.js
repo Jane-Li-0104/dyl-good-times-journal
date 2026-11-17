@@ -23,9 +23,10 @@
   const prettyDate = s => { const d = parseDate(s); return `${d.getMonth() + 1} 月 ${d.getDate()} 日`; };
   const countChars = text => [...String(text)].length;
   function uid() { return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `e-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
-  const emptyEntry = () => ({ id: uid(), text: '', feelings: '', emoji: '', investment: 50, qtags: [], charge: [], drain: [], highlights: [] });
-  let store = { version: 1, days: {} };
+  const emptyEntry = () => ({ id: uid(), text: '', feelings: '', emoji: '', investment: 50, qtags: [], charge: [], drain: [], highlights: [], mapPosition: null });
+  let store = { version: 2, days: {}, reviews: {} };
   try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && typeof d === 'object' && d.days && typeof d.days === 'object') store = d; } catch (_) { /* First visit, blocked storage or malformed old data. */ }
+  if (!store.reviews || typeof store.reviews !== 'object' || Array.isArray(store.reviews)) store.reviews = {};
   let activeDate = dateKey(new Date());
   let reviewWeek = monday(activeDate);
   let calendarMonth = new Date(parseDate(activeDate).getFullYear(), parseDate(activeDate).getMonth(), 1);
@@ -42,6 +43,17 @@
     if (typeof d.summary !== 'string') d.summary = '';
     return d;
   }
+  function getWeekReview(week = reviewWeek, make = false) {
+    if (!store.reviews[week] && make) store.reviews[week] = { answers: ['', '', ''], notes: '' };
+    const review = store.reviews[week];
+    if (!review) return null;
+    if (!Array.isArray(review.answers)) review.answers = ['', '', ''];
+    review.answers = [0, 1, 2].map(i => typeof review.answers[i] === 'string' ? review.answers[i].slice(0, 1500) : '');
+    if (typeof review.notes !== 'string') review.notes = '';
+    return review;
+  }
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const validMapPosition = p => p && Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0 && p.x <= 100 && p.y >= 0 && p.y <= 100;
   function filled(d) { return (d?.entries || []).filter(e => String(e.text || '').trim()).length; }
   function persist() {
     try {
@@ -196,23 +208,35 @@
       const firstLine = e.text.trim().split('\n')[0];
       return `<article class="reflection-entry ${open ? 'open' : ''}" id="reflection-${esc(e.id)}"><button class="reflection-entry-head" data-action="toggle-reflection" data-id="${esc(e.id)}" aria-expanded="${open}"><span class="reflection-index">${pad(index + 1)}</span><span class="reflection-head-text"><div class="reflection-title">${esc(firstLine)}</div><div class="reflection-meta">${prettyDate(day)} · 投入 ${Number(e.investment ?? 50)} / 100 · ${esc(e.emoji || '尚未選 Emoji')}${e.qtags?.length ? ` · 已標記 ${e.qtags.length} 個象限` : ''}</div></span><span class="reflection-head-arrow">${open ? '⌃' : '⌄'}</span></button>${open ? reflectionBody(e) : ''}</article>`;
     }).join('') : `<div class="empty-reflection"><div class="empty-icon">☼</div><strong>這週還沒有可以回顧的事件</strong><br>先去「每日紀錄」寫下生活小事，或在使用指引載入示範資料。<br><button class="outline-btn" id="empty-go-journal">前往每日紀錄 ↗</button></div>`;
-    renderQuadrant(all); renderInsights(all);
+    renderQuadrant(all); renderInsights(all); renderWeekReviewInputs();
+  }
+  // One draggable dot per event. A dot's exact position is distinct from its
+  // optional multiple emotion tags and is retained in each day's entry.
+  function defaultMapPosition(e, index) {
+    const quadrant = (e.qtags || []).find(q => QUADRANTS.some(item => item.id === q));
+    const center = { red: [25, 25], yellow: [75, 25], blue: [25, 75], green: [75, 75] }[quadrant] || [50, 50];
+    const hash = Array.from(e.id).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 10007, 17);
+    return { x: clamp(center[0] + ((hash % 19) - 9), 5, 95), y: clamp(center[1] + ((Math.floor(hash / 17) % 19) - 9), 5, 95) };
   }
   function renderQuadrant(all) {
-    $$('.q-area').forEach(a => $$('.q-point', a).forEach(p => p.remove()));
-    all.forEach(({e, day}, index) => {
-      const qtags = (e.qtags || []).filter(q => QUADRANTS.some(qq => qq.id === q));
-      qtags.forEach((q, qi) => {
-        const area = $(`.q-area[data-q="${q}"]`); if (!area) return;
-        const hash = Array.from(e.id + q).reduce((sum, ch) => (sum * 33 + ch.charCodeAt(0)) % 7919, 19);
-        const left = 19 + ((hash + qi * 13) % 61), top = 30 + ((hash * 7 + qi * 19) % 47);
-        const p = document.createElement('button'); p.className = 'q-point'; p.type = 'button';
-        p.style.left = `calc(${left}% - 12px)`; p.style.top = `calc(${top}% - 12px)`;
-        p.textContent = String(index + 1); p.title = `${prettyDate(day)} · ${e.text.slice(0, 50)}`;
-        p.setAttribute('aria-label', `查看第 ${index + 1} 件：${e.text.slice(0, 30)}`); p.dataset.pointId = e.id;
-        area.appendChild(p);
-      });
+    const layer = $('#quadrant-points-layer');
+    layer.replaceChildren();
+    all.forEach(({ e, day }, index) => {
+      const pos = validMapPosition(e.mapPosition) ? e.mapPosition : defaultMapPosition(e, index);
+      const dot = document.createElement('button');
+      dot.type = 'button'; dot.className = 'q-point';
+      dot.textContent = String(index + 1); dot.style.left = `${pos.x}%`; dot.style.top = `${pos.y}%`;
+      dot.dataset.pointId = e.id;
+      dot.title = `${prettyDate(day)} · ${e.text.slice(0, 80)}（拖曳調整位置；點選查看）`;
+      dot.setAttribute('aria-label', `事件 ${index + 1}：${e.text.slice(0, 30)}；可拖曳或使用方向鍵移動`);
+      layer.appendChild(dot);
     });
+  }
+  function renderWeekReviewInputs() {
+    const review = getWeekReview(reviewWeek, false);
+    $$('.week-answer').forEach((textarea, i) => { textarea.value = review?.answers[i] || ''; });
+    $('#week-final-thoughts').value = review?.notes || '';
+    $('#week-final-count').textContent = `${countChars(review?.notes || '')} / 4000`;
   }
   function frequencies(all, key) {
     const counts = new Map();
@@ -270,10 +294,80 @@
   $('#reflection-entries').addEventListener('click', ev => {
     if (ev.target.closest('#empty-go-journal')) setView('journal');
   });
-  $('#quadrant-grid').addEventListener('click', ev => {
+  const quadrantGrid = $('#quadrant-grid');
+  const quadrantPoints = $('#quadrant-points-layer');
+  let dotDrag = null;
+  function moveDot(point, x, y) {
+    const rect = quadrantGrid.getBoundingClientRect();
+    const pxMargin = 13; // keep the entire 25px dot inside the plot
+    const xx = clamp(x - rect.left, pxMargin, rect.width - pxMargin);
+    const yy = clamp(y - rect.top, pxMargin, rect.height - pxMargin);
+    const pos = { x: Math.round(xx / rect.width * 1000) / 10, y: Math.round(yy / rect.height * 1000) / 10 };
+    point.style.left = `${pos.x}%`;
+    point.style.top = `${pos.y}%`;
+    return pos;
+  }
+  quadrantPoints.addEventListener('pointerdown', ev => {
+    const point = ev.target.closest('.q-point');
+    if (!point || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    const item = getEntryById(point.dataset.pointId); if (!item) return;
+    dotDrag = { pointerId: ev.pointerId, point, id: item.e.id, startX: ev.clientX, startY: ev.clientY, moved: false, pos: null };
+    point.setPointerCapture(ev.pointerId);
+    point.classList.add('dragging');
+    ev.preventDefault();
+  });
+  quadrantPoints.addEventListener('pointermove', ev => {
+    if (!dotDrag || ev.pointerId !== dotDrag.pointerId) return;
+    if (Math.hypot(ev.clientX - dotDrag.startX, ev.clientY - dotDrag.startY) > 4) dotDrag.moved = true;
+    if (dotDrag.moved) dotDrag.pos = moveDot(dotDrag.point, ev.clientX, ev.clientY);
+  });
+  function finishDotDrag(ev, cancelled = false) {
+    if (!dotDrag || ev.pointerId !== dotDrag.pointerId) return;
+    const drag = dotDrag;
+    drag.point.classList.remove('dragging');
+    if (drag.moved) {
+      drag.point.dataset.skipClick = 'true';
+      if (cancelled) renderQuadrant(weekEvents());
+      else {
+        const item = getEntryById(drag.id);
+        if (item && drag.pos) { item.e.mapPosition = drag.pos; persist(); }
+      }
+    }
+    dotDrag = null;
+  }
+  quadrantPoints.addEventListener('pointerup', ev => finishDotDrag(ev));
+  quadrantPoints.addEventListener('pointercancel', ev => finishDotDrag(ev, true));
+  quadrantPoints.addEventListener('lostpointercapture', ev => { if (dotDrag && dotDrag.pointerId === ev.pointerId) finishDotDrag(ev, true); });
+  quadrantPoints.addEventListener('click', ev => {
     const pt = ev.target.closest('[data-point-id]'); if (!pt) return;
+    if (pt.dataset.skipClick === 'true') { delete pt.dataset.skipClick; return; }
     expandedId = pt.dataset.pointId; renderReview();
-    $(`#reflection-${expandedId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $(`#reflection-${CSS.escape(expandedId)}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  quadrantPoints.addEventListener('keydown', ev => {
+    const pt = ev.target.closest('[data-point-id]');
+    if (!pt || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(ev.key)) return;
+    const item = getEntryById(pt.dataset.pointId); if (!item) return;
+    ev.preventDefault();
+    const previous = validMapPosition(item.e.mapPosition) ? item.e.mapPosition : defaultMapPosition(item.e, weekEvents().findIndex(x => x.e.id === item.e.id));
+    const step = ev.shiftKey ? 10 : 2;
+    const pos = { ...previous };
+    if (ev.key === 'ArrowLeft') pos.x -= step;
+    if (ev.key === 'ArrowRight') pos.x += step;
+    if (ev.key === 'ArrowUp') pos.y -= step;
+    if (ev.key === 'ArrowDown') pos.y += step;
+    pos.x = clamp(pos.x, 4, 96); pos.y = clamp(pos.y, 5, 95);
+    pt.style.left = `${pos.x}%`; pt.style.top = `${pos.y}%`;
+    item.e.mapPosition = pos; persist();
+  });
+  $$('.week-answer').forEach(input => input.addEventListener('input', ev => {
+    getWeekReview(reviewWeek, true).answers[Number(ev.target.dataset.reviewAnswer)] = ev.target.value;
+    persist();
+  }));
+  $('#week-final-thoughts').addEventListener('input', ev => {
+    getWeekReview(reviewWeek, true).notes = ev.target.value;
+    $('#week-final-count').textContent = `${countChars(ev.target.value)} / 4000`;
+    persist();
   });
   function applyHighlight(id, color) {
     const item = getEntryById(id); const body = $(`.selectable-highlight[data-entry-id="${id}"]`);
@@ -309,7 +403,8 @@
     item.e[kind].push(t); persist(); renderReview();
   }
   $('#copy-reflection').addEventListener('click', async () => {
-    const all = weekEvents(); if (!all.length) return toast('這週還沒有事件可以整理。');
+    const all = weekEvents(), review = getWeekReview(reviewWeek, false);
+    if (!all.length && !review?.answers.some(Boolean) && !review?.notes) return toast('這週還沒有事件或反思可以整理。');
     const charge = frequencies(all, 'charge').slice(0, 5).map(x => x[0]);
     const drain = frequencies(all, 'drain').slice(0, 5).map(x => x[0]);
     const qcount = Object.fromEntries(QUADRANTS.map(q => [q.id, 0]));
@@ -317,7 +412,9 @@
     const summary = [`【我的好時光日誌週回顧】`, `${reviewWeek} 至 ${addDays(reviewWeek, 6)}｜共 ${all.length} 件生活事件`, '',
       `充電元素：${charge.join('、') || '尚未填寫'}`, `耗電元素：${drain.join('、') || '尚未填寫'}`, '',
       '四色情緒標記次數（同一事件可複選）：', ...QUADRANTS.map(q => `${q.label}：${qcount[q.id]}`), '',
-      '想進一步思考：哪些事件有共通點？有哪些高投入、低愉悅的時刻？'].join('\n');
+      '留給自己的三個問題：',
+      ...[0, 1, 2].map(i => `${i + 1}. ${['這週哪一種顏色最常出現？這些事件有什麼共通點？', '有沒有很投入、卻不太愉悅的事？為什麼它仍出現在生活裡？', '如果下週能為自己增加一個充電元素，你會選哪個？'][i]}\n${review?.answers[i]?.trim() || '（尚未填寫）'}`),
+      '', '完成探索後的心得感想：', review?.notes?.trim() || '（尚未填寫）'].join('\n');
     try { await navigator.clipboard.writeText(summary); toast('分享摘要已複製到剪貼簿；只有你決定貼到哪裡。'); }
     catch (_) { const ta = document.createElement('textarea'); ta.value = summary; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); toast(ok ? '分享摘要已複製。' : '無法存取剪貼簿，可用下載備份功能。'); }
   });
@@ -343,7 +440,7 @@
   $('#export-data').addEventListener('click', () => {
     const json = JSON.stringify({ ...store, exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `拾光日誌備份-${dateKey(new Date())}.json`;
+    const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `好時光日誌備份-${dateKey(new Date())}.json`;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); toast('日誌備份已準備下載。');
   });
   $('#import-data-btn').addEventListener('click', () => $('#import-data-file').click());
@@ -353,7 +450,7 @@
     try {
       const raw = JSON.parse(await f.text());
       if (!raw || !raw.days || typeof raw.days !== 'object' || Array.isArray(raw.days)) throw Error('格式不符');
-      const safe = { version: 1, days: {} };
+      const safe = { version: 2, days: {}, reviews: {} };
       for (const [key, day] of Object.entries(raw.days).slice(0, 4000)) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !day || !Array.isArray(day.entries)) continue;
         const list = day.entries.slice(0, 30).map(e => {
@@ -364,18 +461,28 @@
             qtags: Array.isArray(e?.qtags) ? [...new Set(e.qtags.filter(q => QUADRANTS.some(x => x.id === q)))].slice(0, 4) : [],
             charge: Array.isArray(e?.charge) ? e.charge.filter(x => typeof x === 'string').slice(0, 15).map(x => x.slice(0, 60)) : [],
             drain: Array.isArray(e?.drain) ? e.drain.filter(x => typeof x === 'string').slice(0, 15).map(x => x.slice(0, 60)) : [],
-            highlights: Array.isArray(e?.highlights) ? e.highlights.filter(h => h && Number.isInteger(h.start) && Number.isInteger(h.end) && h.start >= 0 && h.end <= text.length && h.start < h.end && QUADRANTS.some(q => q.id === h.color)).slice(0, 500) : [] };
+            highlights: Array.isArray(e?.highlights) ? e.highlights.filter(h => h && Number.isInteger(h.start) && Number.isInteger(h.end) && h.start >= 0 && h.end <= text.length && h.start < h.end && QUADRANTS.some(q => q.id === h.color)).slice(0, 500) : [],
+            mapPosition: validMapPosition(e?.mapPosition) ? { x: e.mapPosition.x, y: e.mapPosition.y } : null };
         });
         safe.days[key] = { summary: String(day.summary || '').slice(0, 120), entries: list };
       }
+      if (raw.reviews && typeof raw.reviews === 'object' && !Array.isArray(raw.reviews)) {
+        for (const [week, review] of Object.entries(raw.reviews).slice(0, 1500)) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(week) || !review || typeof review !== 'object') continue;
+          safe.reviews[week] = {
+            answers: [0, 1, 2].map(i => typeof review.answers?.[i] === 'string' ? review.answers[i].slice(0, 1500) : ''),
+            notes: typeof review.notes === 'string' ? review.notes.slice(0, 4000) : ''
+          };
+        }
+      }
       if (!confirm('匯入會取代目前這個瀏覽器中「所有」日誌。確定繼續？\n建議先按「下載 JSON 備份」保存原本資料。')) return;
       store = safe; expandedId = null; persist(); setView('journal'); toast('已匯入日誌備份。');
-    } catch (_) { toast('這不是有效的拾光日誌 JSON 備份。'); }
+    } catch (_) { toast('這不是有效的好時光日誌 JSON 備份。'); }
   });
   $('#clear-data').addEventListener('click', () => {
     if (!confirm('確定清空此瀏覽器所有日誌嗎？此操作無法復原，請先下載備份。')) return;
     if (!confirm('再確認一次：要永久清空本機目前所有紀錄嗎？')) return;
-    store = { version: 1, days: {} }; expandedId = null; persist(); setView('journal'); toast('本機日誌已清空。');
+    store = { version: 2, days: {}, reviews: {} }; expandedId = null; persist(); setView('journal'); toast('本機日誌已清空。');
   });
   $('#load-demo').addEventListener('click', () => {
     const prevWeek = addDays(monday(dateKey(new Date())), -7);
