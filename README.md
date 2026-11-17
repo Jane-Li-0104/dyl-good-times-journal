@@ -1,4 +1,4 @@
-# 拾光日誌 Good Times Journal
+# 好時光日誌 Good Times Journal
 
 一個以桌面電腦為主、可離線開啟的 DYL「好時光日誌」網站原型。保留 Week 2 的每日記錄，以及 Week 3 的四色情緒標記、能量拆解與反思。
 
