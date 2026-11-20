@@ -1,17 +1,15 @@
 (() => {
   'use strict';
-  const KEY = 'good-times-journal-dyl-v1';
-  const MOODS = [
-    ['😄', '開心'], ['🥰', '溫暖'], ['😌', '平靜'], ['😐', '普通'],
-    ['😕', '困惑'], ['😢', '難過'], ['😠', '生氣'], ['😰', '焦慮'], ['😴', '疲倦']
-  ];
+  let KEY = 'dyl-1.0-guest';
+  const MOODS = [['😊', '快樂'], ['😢', '悲傷'], ['😨', '恐懼'], ['😡', '憤怒'], ['🤢', '厭惡'], ['😲', '驚訝']];
+  const LEGACY_MOODS = ['😄','🥰','😌','😐','😕','😠','😰','😴'];
   const QUADRANTS = [
     { id: 'red', label: '高能量 × 低愉悅', short: '緊張、焦慮', css: '#f9d8d4' },
     { id: 'yellow', label: '高能量 × 高愉悅', short: '快樂、興奮', css: '#ffe8b5' },
     { id: 'blue', label: '低能量 × 低愉悅', short: '難過、疲倦', css: '#dce3f4' },
     { id: 'green', label: '低能量 × 高愉悅', short: '平靜、放鬆', css: '#d9f1e7' }
   ];
-  const VIEW_NAMES = { journal: '每日紀錄', review: '好時光探索', calendar: '生活日曆', guide: '使用指引' };
+  const VIEW_NAMES = { journal: '每日紀錄', review: '每週回顧', calendar: '生活日曆', guide: '使用指引' };
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -58,9 +56,10 @@
   function persist() {
     try {
       localStorage.setItem(KEY, JSON.stringify(store));
-      $('#save-status').innerHTML = '<span class="save-dot"></span> 已在本機儲存';
+      $('#save-status').textContent = '已儲存';
+      return true;
     } catch (e) {
-      $('#save-status').textContent = '⚠ 儲存失敗，請先下載備份';
+      $('#save-status').textContent = '儲存失敗，請下載備份'; return false;
     }
   }
   function toast(message) {
@@ -87,20 +86,21 @@
       const showFeelings = Boolean(entry.feelings?.trim());
       return `<article class="entry-card" data-id="${esc(entry.id)}">
         <div class="entry-header"><span class="entry-number">${pad(i + 1)}</span><strong class="entry-header-title">第 ${['一', '二', '三'][i] || i + 1} 件生活小事</strong>
-        ${i > 2 ? `<button class="entry-delete" data-action="remove" aria-label="刪除這件事">移除</button>` : `<span class="entry-subtitle">A LITTLE MOMENT</span>`}</div>
+        ${i > 2 ? `<button class="entry-delete" data-action="remove" aria-label="刪除這件事">移除</button>` : ``}</div>
         <label class="entry-label" for="event-text-${esc(entry.id)}">發生了什麼事？</label>
-        <textarea class="entry-text" id="event-text-${esc(entry.id)}" data-field="text" maxlength="2000" placeholder="例如：今天下課後和朋友一起去散步，聊了最近各自的生活。">${esc(entry.text)}</textarea>
+        <textarea class="entry-text" id="event-text-${esc(entry.id)}" data-field="text" maxlength="2000" placeholder="記下這件事…">${esc(entry.text)}</textarea>
         <div class="entry-subrow"><div><div class="entry-label">當時的心情 <span class="small-light">（選 1 個 Emoji）</span></div><div class="emotion-row" role="group" aria-label="事件 ${i + 1} 心情">
         ${MOODS.map(([m, name]) => `<button class="emotion-btn ${entry.emoji === m ? 'selected' : ''}" data-mood="${m}" title="${name}" aria-label="${name}" aria-pressed="${entry.emoji === m}">${m}</button>`).join('')}</div></div>
         <div><div class="entry-label slider-top"><span>投入程度 <span title="這裡的投入是花費的時間、心力或體力，不等同於快樂或能量。">ⓘ</span></span><span class="slider-value">${Number(entry.investment ?? 50)} / 100</span></div>
         <input class="investment-range" type="range" min="0" max="100" step="1" value="${Number(entry.investment ?? 50)}" data-field="investment" aria-label="事件 ${i + 1} 投入程度"><div class="range-endpoints"><span>低投入</span><span>高投入</span></div></div></div>
         <button class="feelings-toggle" data-action="feelings" aria-expanded="${showFeelings}">${showFeelings ? '− 收起' : '＋ 補充'}當下的感受與想法</button>
         <div class="feelings-wrap" ${showFeelings ? '' : 'hidden'}><label class="sr-only" for="feelings-${esc(entry.id)}">當下的感受與想法</label><textarea class="entry-feelings" id="feelings-${esc(entry.id)}" data-field="feelings" maxlength="1500" placeholder="例如：剛開始覺得疲憊，但聊完心情放鬆了很多。">${esc(entry.feelings)}</textarea></div>
-        <div class="entry-footer"><span>每一段經歷，都有值得被看見的部分。</span><span class="entry-saved">自動儲存</span></div>
+        
       </article>`;
     }).join('');
     $('#daily-summary').value = d.summary;
     updateJournalStats();
+    renderDailyExploration();
   }
   function updateJournalStats() {
     const d = getDay(activeDate, true), n = filled(d), pct = Math.min(100, n / 3 * 100);
@@ -109,7 +109,7 @@
     $('#summary-progress').textContent = `${n} / 3`;
     $('#summary-progress-bar').style.width = `${pct}%`;
     $('#summary-count').textContent = `${countChars(d.summary)} / 120`;
-    $('#completion-hint').textContent = n < 3 ? '先寫下 3 件生活中的小事吧。' : d.summary.trim() ? '今天的心情與故事，已經被你留下。' : '三件小事已完成！再替今天寫一句總結吧。';
+    $('#completion-hint').textContent = n < 3 ? '先寫下 3 件生活中的小事吧。' : d.summary.trim() ? '已完成三件紀錄' : '三件小事已完成！再替今天寫一句總結吧。';
   }
   $('#entries-container').addEventListener('input', ev => {
     const card = ev.target.closest('.entry-card'); if (!card) return;
@@ -146,13 +146,20 @@
       d.entries = d.entries.filter(e => e.id !== entry.id); persist(); renderJournal(); toast('已移除這件紀錄。');
     }
   });
-  $('#add-entry').addEventListener('click', () => { const d = getDay(activeDate, true); if (d.entries.length >= 30) return toast('每天最多可記錄 30 件事。'); const e = emptyEntry(); d.entries.push(e); persist(); renderJournal(); $(`#event-text-${e.id}`)?.focus(); });
   $('#daily-summary').addEventListener('input', ev => { getDay(activeDate, true).summary = ev.target.value; persist(); updateJournalStats(); });
   $('#complete-day').addEventListener('click', () => {
-    const d = getDay(activeDate, true); persist();
-    if (filled(d) < 3) return toast('今天已經儲存。再寫下三件生活小事，就能完成課堂練習。');
-    if (!d.summary.trim()) { $('#daily-summary').focus(); return toast('三件小事完成了！試著為今天下一個簡短註解吧。'); }
-    toast('✧ 今天的紀錄完成了！謝謝你留下一點時間給自己。');
+    const d = getDay(activeDate, true);
+    if (filled(d) !== 3 || d.entries.some(e => !e.emoji)) return toast('請完成三件事的內容與心情。');
+    if (!d.summary.trim()) { $('#daily-summary').focus(); return toast('請用一句話總結今天。'); }
+    d.exploring = true;
+    if (!persist()) return toast('儲存失敗，請下載備份。');
+    renderDailyExploration(); $('#daily-exploration').scrollIntoView({behavior:'smooth'});
+  });
+  $('#save-all').addEventListener('click', () => {
+    const d = getDay(activeDate, true);
+    d.completedAt = new Date().toISOString();
+    if (persist()) { $('#day-complete-state').textContent = '今天的資料與便利貼位置已儲存'; toast('今天所有資料已儲存'); }
+    else toast('儲存失敗，請下載備份。');
   });
   function shiftDate(n) { activeDate = addDays(activeDate, n); renderJournal(); }
   $('#journal-prev').addEventListener('click', () => shiftDate(-1));
@@ -169,7 +176,7 @@
     }
     return list;
   }
-  function getEntryById(id) { return weekEvents().find(r => r.e.id === id) || null; }
+  function getEntryById(id) { for (const [day,d] of Object.entries(store.days)) { const e=d.entries.find(e=>e.id===id); if(e) return {e,day}; } return null; }
   function renderHighlighted(e) {
     const txt = String(e.text || '');
     const ranges = (Array.isArray(e.highlights) ? e.highlights : [])
@@ -192,29 +199,47 @@
       <div class="highlight-tools"><div class="mini-help">先用滑鼠選取上面的一段文字，再按一種顏色：</div>
       ${QUADRANTS.map(q => `<button class="marker-btn" data-color="${q.id}" data-entry-id="${esc(e.id)}" title="標記為 ${q.label}">${q.label}</button>`).join('')}
       <button class="clear-marker" data-action="clear-mark" data-entry-id="${esc(e.id)}">清除標記</button></div>
-      <span class="reflect-detail-label">② 這件事有哪些情緒狀態？（可複選）</span>
-      <div class="q-choices">${QUADRANTS.map(q => `<label class="q-choice ${qtags.includes(q.id) ? 'checked' : ''}"><input type="checkbox" data-quadrant="${q.id}" data-entry-id="${esc(e.id)}" ${qtags.includes(q.id) ? 'checked' : ''}><span class="swatch" style="background:${q.css}"></span>${q.label}</label>`).join('')}</div>
-      <span class="reflect-detail-label">③ 拆解影響能量的元素</span>
+      <span class="reflect-detail-label">② 拆解影響能量的元素</span>
       <div class="tag-columns">${[['charge', '🌱 充電元素', '例如：朋友的陪伴'], ['drain', '🪫 耗電元素', '例如：時間壓力']].map(([kind, title, placeholder]) => `<div class="tag-side ${kind}"><div class="tag-side-title">${title}</div><div class="tag-input-row"><input class="tag-input" data-tag-input="${kind}" data-entry-id="${esc(e.id)}" placeholder="${placeholder}" maxlength="60"><button class="tag-add" data-action="add-tag" data-kind="${kind}" data-entry-id="${esc(e.id)}" aria-label="新增${title}">＋</button></div><div class="tag-chip-list">${(e[kind] || []).map(t => `<span class="tag-chip">${esc(t)}<button data-action="remove-tag" data-kind="${kind}" data-tag="${esc(t)}" data-entry-id="${esc(e.id)}" aria-label="移除${esc(t)}">×</button></span>`).join('')}</div></div>`).join('')}</div>
       </div>`;
   }
+  function currentEvents() { return currentView === 'journal' ? getDay(activeDate,true).entries.filter(e=>e.text.trim()).map(e=>({e,day:activeDate})) : weekEvents(); }
+  function placeBoard(target, all) {
+    const board=$('#shared-board'); $(target).append(board); board.hidden=false;
+    renderQuadrant(all); $('#board-empty').hidden=!!all.length;
+  }
+  function renderDailyExploration() {
+    const d=getDay(activeDate,true); $('#daily-exploration').hidden=!d.exploring;
+    if(!d.exploring) return;
+    const entries=$('#reflection-entries'); $('#daily-reflections').append(entries);
+    entries.innerHTML=d.entries.map((e,i)=>`<article class="explore-card"><div class="entry-header"><span class="entry-number">${pad(i+1)}</span><strong>第 ${['一','二','三'][i]} 件生活小事</strong></div>${reflectionBody(e)}</article>`).join('');
+    placeBoard('#daily-board',currentEvents());
+    $('#day-complete-state').textContent=d.completedAt?'今天的資料已儲存':'';
+  }
   function renderReview() {
-    const all = weekEvents(), end = addDays(reviewWeek, 6);
-    $('#review-range').textContent = `${prettyDate(reviewWeek)} — ${prettyDate(end)}`;
-    $('#review-count').textContent = `本週 ${all.length} 個事件`;
-    if (!all.some(a => a.e.id === expandedId)) expandedId = all[0]?.e.id || null;
-    $('#reflection-entries').innerHTML = all.length ? all.map(({ e, day }, index) => {
-      const open = e.id === expandedId;
-      const firstLine = e.text.trim().split('\n')[0];
-      return `<article class="reflection-entry ${open ? 'open' : ''}" id="reflection-${esc(e.id)}"><button class="reflection-entry-head" data-action="toggle-reflection" data-id="${esc(e.id)}" aria-expanded="${open}"><span class="reflection-index">${pad(index + 1)}</span><span class="reflection-head-text"><div class="reflection-title">${esc(firstLine)}</div><div class="reflection-meta">${prettyDate(day)} · 投入 ${Number(e.investment ?? 50)} / 100 · ${esc(e.emoji || '尚未選 Emoji')}${e.qtags?.length ? ` · 已標記 ${e.qtags.length} 個象限` : ''}</div></span><span class="reflection-head-arrow">${open ? '⌃' : '⌄'}</span></button>${open ? reflectionBody(e) : ''}</article>`;
-    }).join('') : `<div class="empty-reflection"><div class="empty-icon">☼</div><strong>這週還沒有可以回顧的事件</strong><br>先去「每日紀錄」寫下生活小事，或在使用指引載入示範資料。<br><button class="outline-btn" id="empty-go-journal">前往每日紀錄 ↗</button></div>`;
-    renderQuadrant(all); renderInsights(all); renderWeekReviewInputs();
+    if(currentView === 'journal') { renderDailyExploration(); return; }
+    const all=weekEvents();
+    $('#review-range').textContent=`${reviewWeek} — ${addDays(reviewWeek,6)}`;
+    $('#review-count').textContent=`本週 ${all.length} 件生活小事`;
+    placeBoard('#weekly-board',all);
+    renderInsights(all);
+    renderWeekReviewInputs();
+  }
+  function elementPills(tags) {
+    return tags?.length ? `<div class="element-pills">${tags.map(tag=>`<span class="element-pill">${esc(tag)}</span>`).join('')}</div>` : '<p class="empty-list">尚未填寫</p>';
+  }
+  function showEntry(id) {
+    const item=getEntryById(id); if(!item) return;
+    const {e,day}=item;
+    $('#entry-detail').innerHTML=`<p class="detail-date">${esc(day)}</p><h3>發生了什麼事？</h3><div class="highlight-body">${renderHighlighted(e)}</div><div class="detail-stats"><span>心情 ${esc(e.emoji||'未填寫')}</span><span>投入程度 ${e.investment} / 100</span></div>${e.feelings?`<h3>感受與想法</h3><p>${esc(e.feelings)}</p>`:''}<h3>情緒標記</h3><div class="detail-legend">${QUADRANTS.filter(q=>e.highlights.some(h=>h.color===q.id)).map(q=>`<span class="hl-${q.id}">${q.label}</span>`).join('')||'尚未標記'}</div><h3>充電元素</h3>${elementPills(e.charge)}<h3>耗電元素</h3>${elementPills(e.drain)}<h3>當日總結</h3><p>${esc(store.days[day].summary||'尚未填寫')}</p><button class="outline-btn" id="edit-this-day">編輯這一天 ↗</button>`;
+    $('#edit-this-day').onclick=()=>{ $('#entry-dialog').close(); activeDate=day; setView('journal'); };
+    $('#entry-dialog').showModal();
   }
   // One draggable dot per event. A dot's exact position is distinct from its
   // optional multiple emotion tags and is retained in each day's entry.
   function defaultMapPosition(e, index) {
     const quadrant = (e.qtags || []).find(q => QUADRANTS.some(item => item.id === q));
-    const center = { red: [25, 25], yellow: [75, 25], blue: [25, 75], green: [75, 75] }[quadrant] || [50, 50];
+    const center = { red: [25, 25], yellow: [75, 25], blue: [25, 75], green: [75, 75] }[quadrant] || [[23,28],[73,30],[30,73]][index % 3];
     const hash = Array.from(e.id).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 10007, 17);
     return { x: clamp(center[0] + ((hash % 19) - 9), 5, 95), y: clamp(center[1] + ((Math.floor(hash / 17) % 19) - 9), 5, 95) };
   }
@@ -225,7 +250,9 @@
       const pos = validMapPosition(e.mapPosition) ? e.mapPosition : defaultMapPosition(e, index);
       const dot = document.createElement('button');
       dot.type = 'button'; dot.className = 'q-point';
-      dot.textContent = String(index + 1); dot.style.left = `${pos.x}%`; dot.style.top = `${pos.y}%`;
+      dot.dataset.dayColor = String((parseDate(day).getDay() + 6) % 7);
+      if (!validMapPosition(e.mapPosition)) e.mapPosition = pos;
+      dot.innerHTML = `<small>${prettyDate(day)} · ${esc(e.emoji)}</small><span>${esc(e.text)}</span>`; dot.style.left = `${pos.x}%`; dot.style.top = `${pos.y}%`;
       dot.dataset.pointId = e.id;
       dot.title = `${prettyDate(day)} · ${e.text.slice(0, 80)}（拖曳調整位置；點選查看）`;
       dot.setAttribute('aria-label', `事件 ${index + 1}：${e.text.slice(0, 30)}；可拖曳或使用方向鍵移動`);
@@ -246,7 +273,7 @@
   function renderInsights(all) {
     $('#insight-tag-columns').innerHTML = [['charge', '🌱 充電元素'], ['drain', '🪫 耗電元素']].map(([kind, title]) => {
       const tags = frequencies(all, kind);
-      return `<div><div class="insight-tags-head ${kind}">${title}</div>${tags.length ? tags.slice(0, 7).map(([text, n]) => `<div class="freq-tag ${kind}"><span>${esc(text)}</span><b>${n} 次</b></div>`).join('') : `<div class="empty-list">尚未整理出元素<br>到上方事件中加上標籤吧</div>`}</div>`;
+      return `<div><div class="insight-tags-head ${kind}">${title}</div><div class="element-pills">${tags.length ? tags.map(([text, n]) => `<div class="element-pill freq-tag ${kind}"><span>${esc(text)}</span><b>${n} 次</b></div>`).join('') : `<div class="empty-list">尚未整理出元素<br>可在每日探索加入元素</div>`}</div></div>`;
     }).join('');
   }
   function setWeek(delta) { reviewWeek = addDays(reviewWeek, delta * 7); expandedId = null; renderReview(); }
@@ -299,9 +326,10 @@
   let dotDrag = null;
   function moveDot(point, x, y) {
     const rect = quadrantGrid.getBoundingClientRect();
-    const pxMargin = 13; // keep the entire 25px dot inside the plot
+    const pxMargin = Math.min(75, rect.width / 4); // keep the entire 25px dot inside the plot
     const xx = clamp(x - rect.left, pxMargin, rect.width - pxMargin);
-    const yy = clamp(y - rect.top, pxMargin, rect.height - pxMargin);
+    const yMargin = point.offsetHeight / 2;
+    const yy = clamp(y - rect.top, yMargin, rect.height - yMargin);
     const pos = { x: Math.round(xx / rect.width * 1000) / 10, y: Math.round(yy / rect.height * 1000) / 10 };
     point.style.left = `${pos.x}%`;
     point.style.top = `${pos.y}%`;
@@ -327,7 +355,7 @@
     drag.point.classList.remove('dragging');
     if (drag.moved) {
       drag.point.dataset.skipClick = 'true';
-      if (cancelled) renderQuadrant(weekEvents());
+      if (cancelled) renderQuadrant(currentEvents());
       else {
         const item = getEntryById(drag.id);
         if (item && drag.pos) { item.e.mapPosition = drag.pos; persist(); }
@@ -341,8 +369,7 @@
   quadrantPoints.addEventListener('click', ev => {
     const pt = ev.target.closest('[data-point-id]'); if (!pt) return;
     if (pt.dataset.skipClick === 'true') { delete pt.dataset.skipClick; return; }
-    expandedId = pt.dataset.pointId; renderReview();
-    $(`#reflection-${CSS.escape(expandedId)}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showEntry(pt.dataset.pointId);
   });
   quadrantPoints.addEventListener('keydown', ev => {
     const pt = ev.target.closest('[data-point-id]');
@@ -356,7 +383,9 @@
     if (ev.key === 'ArrowRight') pos.x += step;
     if (ev.key === 'ArrowUp') pos.y -= step;
     if (ev.key === 'ArrowDown') pos.y += step;
-    pos.x = clamp(pos.x, 4, 96); pos.y = clamp(pos.y, 5, 95);
+    const rect=quadrantGrid.getBoundingClientRect();
+    const mx=pt.offsetWidth/2/rect.width*100, my=pt.offsetHeight/2/rect.height*100;
+    pos.x = clamp(pos.x, mx, 100-mx); pos.y = clamp(pos.y, my, 100-my);
     pt.style.left = `${pos.x}%`; pt.style.top = `${pos.y}%`;
     item.e.mapPosition = pos; persist();
   });
@@ -453,10 +482,10 @@
       const safe = { version: 2, days: {}, reviews: {} };
       for (const [key, day] of Object.entries(raw.days).slice(0, 4000)) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !day || !Array.isArray(day.entries)) continue;
-        const list = day.entries.slice(0, 30).map(e => {
+        const list = day.entries.slice(0, 3).map(e => {
           const text = String(e?.text || '').slice(0, 2000);
           return { id: uid(), text, feelings: String(e?.feelings || '').slice(0, 1500),
-            emoji: MOODS.some(m => m[0] === e?.emoji) ? e.emoji : '',
+            emoji: (MOODS.some(m => m[0] === e?.emoji) || LEGACY_MOODS.includes(e?.emoji)) ? e.emoji : '',
             investment: Math.max(0, Math.min(100, Number(e?.investment) || 0)),
             qtags: Array.isArray(e?.qtags) ? [...new Set(e.qtags.filter(q => QUADRANTS.some(x => x.id === q)))].slice(0, 4) : [],
             charge: Array.isArray(e?.charge) ? e.charge.filter(x => typeof x === 'string').slice(0, 15).map(x => x.slice(0, 60)) : [],
@@ -464,7 +493,7 @@
             highlights: Array.isArray(e?.highlights) ? e.highlights.filter(h => h && Number.isInteger(h.start) && Number.isInteger(h.end) && h.start >= 0 && h.end <= text.length && h.start < h.end && QUADRANTS.some(q => q.id === h.color)).slice(0, 500) : [],
             mapPosition: validMapPosition(e?.mapPosition) ? { x: e.mapPosition.x, y: e.mapPosition.y } : null };
         });
-        safe.days[key] = { summary: String(day.summary || '').slice(0, 120), entries: list };
+        safe.days[key] = { exploring: !!day.exploring, completedAt: typeof day.completedAt==='string'?day.completedAt:null, summary: String(day.summary || '').slice(0, 120), entries: list };
       }
       if (raw.reviews && typeof raw.reviews === 'object' && !Array.isArray(raw.reviews)) {
         for (const [week, review] of Object.entries(raw.reviews).slice(0, 1500)) {
@@ -487,12 +516,12 @@
   $('#load-demo').addEventListener('click', () => {
     const prevWeek = addDays(monday(dateKey(new Date())), -7);
     const samples = [
-      [ '和朋友一起在咖啡廳讀書，聊了最近讓自己煩惱的事。', '本來有些疲憊，但聊天後覺得被理解。', '🥰', 75, ['green','yellow'], ['朋友的陪伴', '有人傾聽'], [] ],
-      [ '準備課堂報告，查資料時一直擔心時間不夠。', '很投入，也確實感到焦慮。', '😰', 95, ['red'], [], ['時間壓力', '不確定感'] ],
-      [ '晚上散步時遇到好舒服的涼風。', '心裡慢慢安靜下來。', '😌', 45, ['green'], ['散步', '舒服的天氣'], [] ],
-      [ '趕早八的課，早上沒吃早餐。', '頭昏昏的，整天都在想找時間休息。', '😴', 80, ['blue'], [], ['睡眠不足'] ],
-      [ '和同學一起討論了很有趣的研究想法。', '有被激發出想繼續做下去的熱情。', '😄', 90, ['yellow'], ['共同討論', '新點子'], [] ],
-      [ '在家整理房間，丟掉一些堆積很久的東西。', '雖然很累，但也有完成事情的成就感。', '😌', 70, ['blue','green'], ['完成小目標'], ['久站'] ]
+      [ '和朋友一起在咖啡廳讀書，聊了最近讓自己煩惱的事。', '本來有些疲憊，但聊天後覺得被理解。', '😊', 75, ['green','yellow'], ['朋友的陪伴', '有人傾聽'], [] ],
+      [ '準備課堂報告，查資料時一直擔心時間不夠。', '很投入，也確實感到焦慮。', '😨', 95, ['red'], [], ['時間壓力', '不確定感'] ],
+      [ '晚上散步時遇到好舒服的涼風。', '心裡慢慢安靜下來。', '😊', 45, ['green'], ['散步', '舒服的天氣'], [] ],
+      [ '趕早八的課，早上沒吃早餐。', '頭昏昏的，整天都在想找時間休息。', '😢', 80, ['blue'], [], ['睡眠不足'] ],
+      [ '和同學一起討論了很有趣的研究想法。', '有被激發出想繼續做下去的熱情。', '😊', 90, ['yellow'], ['共同討論', '新點子'], [] ],
+      [ '在家整理房間，丟掉一些堆積很久的東西。', '雖然很累，但也有完成事情的成就感。', '😊', 70, ['blue','green'], ['完成小目標'], ['久站'] ]
     ];
     let added = 0;
     for (let i = 0; i < 6; i++) {
@@ -509,5 +538,51 @@
     persist(); reviewWeek = prevWeek; expandedId = null; setView('review'); toast(`已加入上一週 ${added} 天的示範紀錄（不覆蓋既有內容）。`);
   });
   $$('.nav-link').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
-  renderJournal();
+  // Prototype account flow: salted password digest, separate journal per account.
+  let user = sessionStorage.getItem('dyl-user') || '';
+  let registering=false;
+  function loadAccount() {
+    KEY=user?'dyl-1.0-user-'+user:'dyl-1.0-guest';
+    try { store=JSON.parse(localStorage.getItem(KEY))||{version:2,days:{},reviews:{}}; } catch { store={version:2,days:{},reviews:{}}; }
+    $('#account-button').textContent=user?user+' · 登出':'登入 ↗';
+    setView('journal',false);
+    window.DYLOdyssey?.changeAccount(user);
+  }
+  function openActivity(view) {
+    $('#home-page').hidden=true; $('#journal-app').hidden=view!=='journal'; $('#odyssey-page').hidden=view!=='odyssey';
+    if(view==='journal') setView('journal');
+    if(view==='odyssey') window.DYLOdyssey?.open();
+  }
+  $('#go-home').onclick=()=>{ $('#home-page').hidden=false; $('#journal-app').hidden=true; $('#odyssey-page').hidden=true; };
+  $$('[data-open]').forEach(b=>b.onclick=()=>openActivity(b.dataset.open));
+  $('#account-button').onclick=()=>{
+    if(user) { user=''; sessionStorage.removeItem('dyl-user'); loadAccount(); toast('已登出'); return; }
+    $('#auth-error').textContent=''; $('#login-dialog').showModal();
+  };
+  $('#auth-switch').onclick=()=>{
+    registering=!registering;
+    $('#auth-title').textContent=$('#auth-submit').textContent=registering?'註冊':'登入';
+    $('#auth-switch').textContent=registering?'已有帳號？登入':'還沒有帳號？註冊';
+    $('#password').autocomplete=registering?'new-password':'current-password'; $('#auth-error').textContent='';
+  };
+  async function digest(password,salt) {
+    const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);
+    const buffer=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},key,256);
+    return Array.from(new Uint8Array(buffer)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  $('#auth-form').onsubmit=async ev=>{
+    ev.preventDefault(); const name=$('#username').value.trim(),password=$('#password').value;
+    if(name.length<2) { $('#auth-error').textContent='帳號至少需要兩個字元'; return; }
+    try {
+      const accounts=JSON.parse(localStorage.getItem('dyl-accounts')||'{}');
+      const existing=Object.hasOwn(accounts,name)?accounts[name]:null;
+      if(registering) {
+        if(existing) throw Error('帳號已存在，請登入或使用其他帳號');
+        const salt=crypto.randomUUID(); Object.defineProperty(accounts,name,{value:{salt,hash:await digest(password,salt)},enumerable:true,configurable:true});
+        localStorage.setItem('dyl-accounts',JSON.stringify(accounts));
+      } else if(!existing || await digest(password,existing.salt)!==existing.hash) throw Error('帳號或密碼不正確');
+      user=name; sessionStorage.setItem('dyl-user',user); loadAccount(); $('#password').value=''; $('#login-dialog').close(); toast(registering?'註冊完成':'已登入');
+    } catch(err) { $('#auth-error').textContent=err.message||'登入失敗，請重試'; }
+  };
+  loadAccount();
 })();
